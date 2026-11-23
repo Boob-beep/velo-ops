@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VeloOps Pro | نظام إدارة الأرباح وإغلاق المبيعات بالذكاء الاصطناعي</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Tajawal', sans-serif; background-color: #090d16; color: #f8fafc; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- 1. شاشة تسجيل الدخول / إنشاء متجر -->
+  <div id="authScreen" class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/30">
+    <div class="bg-slate-900/90 backdrop-blur border border-slate-800 rounded-2xl max-w-md w-full p-8 shadow-2xl space-y-6">
+      <div class="text-center">
+        <a href="index.html" class="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full text-emerald-400 text-xs font-bold mb-3 hover:bg-emerald-500/20 transition">
+          <span>←</span> العودة للصفحة الرئيسية
+        </a>
+        <h1 class="text-3xl font-extrabold text-white">Velo<span class="text-emerald-400">Ops</span></h1>
+        <p class="text-slate-400 text-sm mt-2">احسب أرباحك الحقيقية بدقة وأغلق طلبات المتجر تلقائياً عبر AI</p>
+      </div>
+
+      <div class="grid grid-cols-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+        <button id="tabLogin" onclick="switchAuthMode('login')" class="py-2 rounded-lg text-sm font-bold bg-emerald-600 text-white transition">تسجيل الدخول</button>
+        <button id="tabSignup" onclick="switchAuthMode('signup')" class="py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition">إنشاء متجر جديد</button>
+      </div>
+
+      <form onsubmit="handleAuth(event)" class="space-y-4">
+        <div id="storeNameField" class="hidden">
+          <label class="block text-xs text-slate-400 mb-1">اسم متجرك الإلكتروني</label>
+          <input id="authStoreName" type="text" placeholder="مثال: متجر النخبة" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:border-emerald-500 outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">البريد الإلكتروني</label>
+          <input id="authEmail" type="email" required placeholder="merchant@store.com" dir="ltr" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:border-emerald-500 outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">كلمة المرور (6 أحرف على الأقل)</label>
+          <input id="authPassword" type="password" required minlength="6" placeholder="••••••••" dir="ltr" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:border-emerald-500 outline-none" />
+        </div>
+        <p id="authError" class="text-xs text-rose-400 hidden"></p>
+        <button type="submit" id="authSubmitBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-sm shadow-lg shadow-emerald-600/20 transition">دخول إلى لوحة التحكم</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. لوحة تحكم التاجر المتكاملة -->
+  <div id="dashboardScreen" class="hidden p-4 md:p-6">
+    <header class="max-w-7xl mx-auto flex flex-wrap justify-between items-center mb-6 pb-4 border-b border-slate-800/80 gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <a href="index.html" class="text-2xl font-extrabold text-white">Velo<span class="text-emerald-400">Ops</span></a>
+          <span class="text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-bold">PRO ENTERPRISE</span>
+          <span class="text-[11px] bg-sky-500/10 text-sky-400 px-2 py-0.5 rounded-full flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping"></span> بث حي</span>
+        </div>
+        <p class="text-slate-400 text-sm mt-1" id="storeHeader">جاري تحميل المتجر...</p>
+      </div>
+
+      <div class="flex flex-wrap gap-2.5">
+        <button onclick="openShopifyTestModal()" class="bg-[#95bf47]/20 hover:bg-[#95bf47]/30 text-[#a8d654] border border-[#95bf47]/40 px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+          <span>🛍️</span> محاكاة طلب Shopify
+        </button>
+        <button onclick="openSimulatorModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg shadow-emerald-600/20 transition">
+          + محاكاة طلب مخصص
+        </button>
+        <button onclick="logout()" class="bg-slate-900 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-800 px-3.5 py-2 rounded-lg text-xs transition">
+          خروج
+        </button>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto space-y-6">
+      <!-- بطاقات الأرباح والمؤشرات -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-slate-900/90 border border-slate-800 p-5 rounded-xl">
+          <p class="text-slate-400 text-xs font-medium">إجمالي المبيعات الفعّالة</p>
+          <h2 class="text-2xl font-extrabold mt-2 text-white" id="totalRevenue">0 ر.س</h2>
+          <p class="text-[11px] text-slate-500 mt-1">تُستبعد الطلبات الملغاة تلقائياً</p>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 p-5 rounded-xl">
+          <p class="text-slate-400 text-xs font-medium">إجمالي التكاليف (منتج + شحن + إعلان)</p>
+          <h2 class="text-2xl font-extrabold mt-2 text-rose-400" id="totalCosts">0 ر.س</h2>
+          <p class="text-[11px] text-slate-500 mt-1" id="marginBadge">هامش الربح: 0%</p>
+        </div>
+        <div class="bg-gradient-to-br from-slate-900 to-emerald-950/30 border border-emerald-500/40 p-5 rounded-xl shadow-lg shadow-emerald-950/20">
+          <p class="text-emerald-300 text-xs font-bold">صافي الربح الحقيقي (Net Profit)</p>
+          <h2 class="text-3xl font-extrabold mt-2 text-emerald-400" id="netProfit">0 ر.س</h2>
+          <p class="text-[11px] text-emerald-400/70 mt-1" id="confirmedProfitSub">الربح المؤكد: 0 ر.س</p>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 p-5 rounded-xl">
+          <p class="text-slate-400 text-xs font-medium">إحصائيات الطلبات</p>
+          <h2 class="text-2xl font-extrabold mt-2 text-sky-400" id="ordersCount">0</h2>
+          <p class="text-[11px] text-slate-400 mt-1" id="ordersStatusSummary">0 مؤكد • 0 انتظار • 0 ملغي</p>
+        </div>
+      </section>
+
+      <!-- مركز الربط المباشر مع Shopify -->
+      <section class="bg-slate-900/90 border border-[#95bf47]/30 p-5 rounded-xl space-y-4">
+        <div class="flex flex-wrap justify-between items-center gap-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">🛍️</span>
+            <div>
+              <h3 class="text-sm font-bold text-white">مركز الربط التلقائي مع Shopify (Live Webhook Integration)</h3>
+              <p class="text-xs text-slate-400">انسخ الرابط الجاهز أدناه وضعه في متجر Shopify لاستقبال الطلبات وحساب أرباحها تلقائياً</p>
+            </div>
+          </div>
+          <button onclick="toggleShopifyGuide()" class="text-xs text-[#a8d654] hover:underline font-bold">كيف أربط متجري في 30 ثانية؟</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center" dir="ltr">
+          <div class="md:col-span-4">
+            <label class="block text-[11px] text-slate-400 mb-1">Server / Tunnel URL (n8n)</label>
+            <input id="tunnelBaseUrl" oninput="updateShopifyWebhookPreview()" value="http://localhost:5678" placeholder="https://xxxxx.lhr.life" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-sky-300 focus:border-[#95bf47] outline-none" />
+          </div>
+          <div class="md:col-span-6">
+            <label class="block text-[11px] text-slate-400 mb-1">Ready Shopify Order Creation Webhook URL</label>
+            <input id="fullShopifyWebhook" readonly class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-emerald-400 select-all outline-none" />
+          </div>
+          <div class="md:col-span-2 pt-4">
+            <button onclick="copyFullWebhook(this)" class="w-full bg-[#95bf47] hover:bg-[#82ab39] text-slate-950 font-extrabold py-2 px-3 rounded-lg text-xs transition">نسخ الرابط</button>
+          </div>
+        </div>
+
+        <div id="shopifyGuideBox" class="hidden bg-slate-950 border border-slate-800 p-4 rounded-lg text-xs text-slate-300 space-y-1.5">
+          <p class="font-bold text-[#a8d654]">خطوات الربط في لوحة تحكم Shopify:</p>
+          <p>1. افتح <strong>Settings</strong> (أسفل اليسار) ثم <strong>Notifications</strong> وانزل إلى قسم <strong>Webhooks</strong>.</p>
+          <p>2. اضغط <strong>Create webhook</strong>، واختر الحدث <strong>Order creation</strong> والصيغة <strong>JSON</strong>.</p>
+          <p>3. الصق الرابط المنسوخ أعلاه في خانة <strong>URL</strong> واضغط <strong>Save</strong> (سيتم احتساب التكاليف تلقائياً حسب نسبك أدناه).</p>
+        </div>
+      </section>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- إعدادات موظف المبيعات + التكاليف الافتراضية -->
+        <section class="bg-slate-900/90 border border-slate-800 p-5 rounded-xl lg:col-span-1 h-fit space-y-4">
+          <h3 class="text-base font-bold text-white border-b border-slate-800 pb-3">إعدادات المتجر والتكاليف الافتراضية</h3>
+          
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">اسم المتجر</label>
+            <input id="storeNameInput" type="text" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none" />
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">تكلفة المنتج %</label>
+              <input id="defaultCogsInput" type="number" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white focus:border-emerald-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">متوسط الشحن</label>
+              <input id="defaultShipInput" type="number" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white focus:border-emerald-500 outline-none" />
+            </div>
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">متوسط الإعلان</label>
+              <input id="defaultAdInput" type="number" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white focus:border-emerald-500 outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">أقصى خصم مسموح للبوت (%)</label>
+            <input id="discountInput" type="number" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none" />
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">شخصية وتعليمات موظف المبيعات (AI)</label>
+            <textarea id="personaInput" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-emerald-500 outline-none leading-relaxed"></textarea>
+          </div>
+
+          <button onclick="saveSettings()" id="saveBtn" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-lg text-sm transition">حفظ الإعدادات والتكاليف</button>
+        </section>
+
+        <!-- جدول الطلبات الحية مع إدارة الحالات -->
+        <section class="bg-slate-900/90 border border-slate-800 p-5 rounded-xl lg:col-span-2 overflow-x-auto">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-base font-bold text-white">سجل الطلبات المباشر وإدارة التأكيد</h3>
+            <span class="text-xs text-slate-400">غيّر حالة الطلب لتحديث صافي الربح المؤكد</span>
+          </div>
+          <table class="w-full text-right text-sm">
+            <thead>
+              <tr class="text-slate-400 text-xs border-b border-slate-800">
+                <th class="pb-3">الطلب</th>
+                <th class="pb-3">العميل</th>
+                <th class="pb-3">المبيعات</th>
+                <th class="pb-3">التكاليف</th>
+                <th class="pb-3">صافي الربح</th>
+                <th class="pb-3">الحالة</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTableBody" class="divide-y divide-slate-800/60 text-xs">
+              <tr><td colspan="6" class="py-8 text-center text-slate-500">لا توجد طلبات مسجلة بعد</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+
+      <!-- قسم رسائل الإغلاق الذكية -->
+      <section class="bg-slate-900/90 border border-slate-800 p-5 rounded-xl">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h3 class="text-base font-bold text-white">رسائل إغلاق المبيعات المولّدة بالذكاء الاصطناعي (AI Closing Messages)</h3>
+            <p class="text-xs text-slate-400 mt-0.5">جاهزة للإرسال الفوري لعملاء الدفع عند الاستلام عبر واتساب بضغطة زر</p>
+          </div>
+          <span class="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full font-bold">Groq Llama/GPT Engine</span>
+        </div>
+        <div id="conversationsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <p class="text-slate-500 text-xs">لا توجد رسائل مولّدة بعد.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- نافذة محاكاة طلب مخصص -->
+  <div id="simModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4">
+      <h3 class="text-base font-bold text-white">إرسال طلب مخصص إلى محرك VeloOps</h3>
+      <div class="grid grid-cols-2 gap-3 text-xs">
+        <div>
+          <label class="text-slate-400">اسم العميل</label>
+          <input id="simName" value="سلمان الدوسري" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 mt-1 text-white" />
+        </div>
+        <div>
+          <label class="text-slate-400">رقم الواتساب</label>
+          <input id="simPhone" value="+966501234567" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 mt-1 text-white" dir="ltr" />
+        </div>
+        <div>
+          <label class="text-slate-400">رقم الطلب</label>
+          <input id="simOrderId" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 mt-1 text-white" />
+        </div>
+        <div>
+          <label class="text-slate-400">سعر البيع (ر.س)</label>
+          <input id="simRev" type="number" value="450" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 mt-1 text-white" />
+        </div>
+        <div>
+          <label class="text-slate-400">تكلفة المنتج</label>
+          <input id="simCogs" type="number" value="130" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 mt-1 text-white" />
+        </div>
+        <div>
+          <label class="text-slate-400">الإعلان + الشحن</label>
+          <input id="simExtra" type="number" value="50" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 mt-1 text-white" />
+        </div>
+        <div class="col-span-2">
+          <label class="text-slate-400">عنوان الشحن</label>
+          <input id="simAddress" value="الرياض، حي الياسمين، طريق الملك عبدالعزيز" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 mt-1 text-white" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeSimulatorModal()" class="px-4 py-2 rounded-lg bg-slate-800 text-xs">إلغاء</button>
+        <button onclick="sendSimulatedOrder()" id="simSendBtn" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-xs">إرسال وتشغيل AI</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://qfncpknnquywgjblniao.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_v1AMbDmunVzQ1VJjvMMg4w_UhEemqpq";
+
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let authMode = 'login';
+    let currentOrgId = null;
+
+    function getWebhookBase() {
+      return (document.getElementById('tunnelBaseUrl')?.value || 'http://localhost:5678').replace(/\/$/, '');
+    }
+
+    function updateShopifyWebhookPreview() {
+      if (!currentOrgId) return;
+      document.getElementById('fullShopifyWebhook').value = `${getWebhookBase()}/webhook/velo-new-order?org_id=${currentOrgId}`;
+    }
+
+    function toggleShopifyGuide() {
+      document.getElementById('shopifyGuideBox').classList.toggle('hidden');
+    }
+
+    function copyFullWebhook(btn) {
+      const val = document.getElementById('fullShopifyWebhook').value;
+      navigator.clipboard.writeText(val);
+      btn.innerText = "تم النسخ ✓";
+      setTimeout(() => btn.innerText = "نسخ الرابط", 1500);
+    }
+
+    function switchAuthMode(mode) {
+      authMode = mode;
+      const isSignup = mode === 'signup';
+      document.getElementById('storeNameField').classList.toggle('hidden', !isSignup);
+      document.getElementById('authStoreName').required = isSignup;
+      document.getElementById('authSubmitBtn').innerText = isSignup ? 'إنشاء المتجر والدخول للوحة' : 'دخول إلى لوحة التحكم';
+      document.getElementById('tabLogin').className = isSignup ? 'py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition' : 'py-2 rounded-lg text-sm font-bold bg-emerald-600 text-white transition';
+      document.getElementById('tabSignup').className = isSignup ? 'py-2 rounded-lg text-sm font-bold bg-emerald-600 text-white transition' : 'py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white transition';
+      document.getElementById('authError').classList.add('hidden');
+    }
+
+    async function handleAuth(e) {
+      e.preventDefault();
+      const email = document.getElementById('authEmail').value.trim();
+      const password = document.getElementById('authPassword').value;
+      const storeName = document.getElementById('authStoreName').value.trim();
+      const errEl = document.getElementById('authError');
+      const btn = document.getElementById('authSubmitBtn');
+      errEl.classList.add('hidden');
+      btn.disabled = true;
+      btn.innerText = 'جاري المعالجة...';
+
+      try {
+        if (authMode === 'signup') {
+          const { data: signUpData, error: signUpErr } = await db.auth.signUp({ email, password });
+          if (signUpErr) throw signUpErr;
+
+          const { error: orgErr } = await db.from('organizations').insert({
+            owner_id: signUpData.user.id,
+            owner_email: email,
+            store_name: storeName || 'متجري الجديد',
+            ai_persona_prompt: `أنت مساعد مبيعات ذكي لمتجر ${storeName || 'المتجر'}. تحدث بلهجة عربية بيضاء مهذبة، أكد عنوان التوصيل بدقة، واعرض خصم إضافي حتى 10% إذا طلب العميل قطعة إضافية.`,
+            max_discount_percent: 10,
+            default_cogs_percent: 30,
+            default_shipping_cost: 25,
+            default_ad_spend: 15
+          });
+          if (orgErr) throw orgErr;
+        } else {
+          const { error: signInErr } = await db.auth.signInWithPassword({ email, password });
+          if (signInErr) throw signInErr;
+        }
+        window.history.replaceState({}, document.title, 'VeloOps.html');
+        await checkSession();
+      } catch (err) {
+        errEl.innerText = err.message || 'حدث خطأ أثناء المصادقة';
+        errEl.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = authMode === 'signup' ? 'إنشاء المتجر والدخول للوحة' : 'دخول إلى لوحة التحكم';
+      }
+    }
+
+    async function checkSession() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const requestedMode = urlParams.get('mode');
+      const { data: { session } } = await db.auth.getSession();
+
+      if (!session || requestedMode === 'signup') {
+        document.getElementById('authScreen').classList.remove('hidden');
+        document.getElementById('dashboardScreen').classList.add('hidden');
+        if (requestedMode === 'signup') switchAuthMode('signup');
+        return;
+      }
+
+      document.getElementById('authScreen').classList.add('hidden');
+      document.getElementById('dashboardScreen').classList.remove('hidden');
+
+      const { data: orgs } = await db.from('organizations').select('*').eq('owner_id', session.user.id).limit(1);
+      if (orgs && orgs.length > 0) {
+        currentOrgId = orgs[0].id;
+        updateShopifyWebhookPreview();
+        await loadDashboard();
+      }
+    }
+
+    async function logout() {
+      await db.auth.signOut();
+      currentOrgId = null;
+      window.history.replaceState({}, document.title, 'VeloOps.html');
+      checkSession();
+    }
+
+    async function updateOrderStatus(orderId, newStatus) {
+      await db.from('orders').update({ status: newStatus }).eq('id', orderId);
+      loadDashboard();
+    }
+
+    async function loadDashboard() {
+      if (!currentOrgId) return;
+
+      const { data: org } = await db.from('organizations').select('*').eq('id', currentOrgId).single();
+      if (org) {
+        document.getElementById('storeHeader').innerText = `المتجر النشط: ${org.store_name} (${org.owner_email || ''})`;
+        document.getElementById('storeNameInput').value = org.store_name;
+        document.getElementById('personaInput').value = org.ai_persona_prompt || '';
+        document.getElementById('discountInput').value = org.max_discount_percent ?? 10;
+        document.getElementById('defaultCogsInput').value = org.default_cogs_percent ?? 30;
+        document.getElementById('defaultShipInput').value = org.default_shipping_cost ?? 25;
+        document.getElementById('defaultAdInput').value = org.default_ad_spend ?? 15;
+      }
+
+      const { data: orders } = await db.from('orders').select('*').eq('org_id', currentOrgId).order('created_at', { ascending: false });
+      const tbody = document.getElementById('ordersTableBody');
+      let revSum = 0, costSum = 0, profitSum = 0, confirmedProfit = 0;
+      let countConfirmed = 0, countPending = 0, countCancelled = 0;
+
+      if (orders && orders.length > 0) {
+        tbody.innerHTML = orders.map(o => {
+          const status = o.status || 'pending';
+          const rev = Number(o.total_revenue || 0);
+          const costs = Number(o.cogs || 0) + Number(o.ad_spend || 0) + Number(o.shipping_cost || 0);
+          const profit = Number(o.net_profit ?? (rev - costs));
+
+          if (status === 'cancelled') {
+            countCancelled++;
+          } else {
+            revSum += rev; costSum += costs; profitSum += profit;
+            if (status === 'confirmed') { countConfirmed++; confirmedProfit += profit; }
+            else { countPending++; }
+          }
+
+          const statusColors = {
+            confirmed: 'bg-emerald-950 text-emerald-400 border-emerald-700',
+            pending: 'bg-amber-950/60 text-amber-300 border-amber-700/60',
+            cancelled: 'bg-rose-950/60 text-rose-400 border-rose-800/60'
+          };
+
+          return `
+            <tr class="hover:bg-slate-800/40 transition ${status === 'cancelled' ? 'opacity-50' : ''}">
+              <td class="py-3 font-mono text-sky-400">${o.external_order_id}</td>
+              <td class="py-3 font-medium text-white">${o.customer_name}</td>
+              <td class="py-3">${rev.toFixed(0)} ر.س</td>
+              <td class="py-3 text-rose-400">-${costs.toFixed(0)} ر.س</td>
+              <td class="py-3 font-bold text-emerald-400">+${profit.toFixed(0)} ر.س</td>
+              <td class="py-3">
+                <select onchange="updateOrderStatus('${o.id}', this.value)" class="border rounded-lg px-2 py-1 text-[11px] font-bold outline-none ${statusColors[status] || statusColors.pending}">
+                  <option value="pending" ${status === 'pending' ? 'selected' : ''}>🟡 انتظار</option>
+                  <option value="confirmed" ${status === 'confirmed' ? 'selected' : ''}>🟢 مؤكد</option>
+                  <option value="cancelled" ${status === 'cancelled' ? 'selected' : ''}>🔴 ملغي</option>
+                </select>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } else {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-500">لا توجد طلبات مسجلة بعد. جرب إرسال طلب تجريبي من الأزرار في الأعلى!</td></tr>';
+      }
+
+      const margin = revSum > 0 ? ((profitSum / revSum) * 100).toFixed(1) : 0;
+      document.getElementById('totalRevenue').innerText = `${revSum.toFixed(0)} ر.س`;
+      document.getElementById('totalCosts').innerText = `${costSum.toFixed(0)} ر.س`;
+      document.getElementById('marginBadge').innerText = `هامش صافي الربح: ${margin}%`;
+      document.getElementById('netProfit').innerText = `${profitSum.toFixed(0)} ر.س`;
+      document.getElementById('confirmedProfitSub').innerText = `الربح المؤكد فعلياً: ${confirmedProfit.toFixed(0)} ر.س`;
+      document.getElementById('ordersCount').innerText = orders ? orders.length : 0;
+      document.getElementById('ordersStatusSummary').innerText = `${countConfirmed} مؤكد • ${countPending} انتظار • ${countCancelled} ملغي`;
+
+      const { data: convs } = await db.from('ai_conversations').select('*').eq('org_id', currentOrgId).order('created_at', { ascending: false }).limit(6);
+      const convContainer = document.getElementById('conversationsContainer');
+      if (!convs || convs.length === 0) {
+        convContainer.innerHTML = '<p class="text-slate-500 text-xs">لا توجد رسائل مولّدة بعد.</p>';
+      } else {
+        convContainer.innerHTML = convs.map((c, idx) => {
+          const cleanPhone = (c.customer_phone || '').replace(/[^0-9]/g, '');
+          const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(c.ai_reply || '')}`;
+          return `
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col justify-between space-y-3">
+              <div>
+                <div class="flex justify-between items-center mb-2">
+                  <span class="font-bold text-sky-400 text-xs">${c.customer_name || 'عميل'}</span>
+                  <span class="text-[11px] text-slate-500 font-mono" dir="ltr">${c.customer_phone || ''}</span>
+                </div>
+                <p id="msg-${idx}" class="text-xs text-slate-300 leading-relaxed whitespace-pre-line bg-slate-900/90 p-3 rounded-lg border border-slate-800/80">${c.ai_reply || ''}</p>
+              </div>
+              <div class="flex gap-2 pt-1">
+                <button onclick="copyMsg('msg-${idx}', this)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2 rounded-lg text-xs font-medium transition">نسخ</button>
+                <a href="${waUrl}" target="_blank" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-xs font-bold text-center transition">واتساب مباشر</a>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    function copyMsg(elemId, btn) {
+      navigator.clipboard.writeText(document.getElementById(elemId).innerText);
+      btn.innerText = "تم النسخ ✓";
+      setTimeout(() => btn.innerText = "نسخ", 1500);
+    }
+
+    async function saveSettings() {
+      const btn = document.getElementById('saveBtn');
+      btn.innerText = "جاري الحفظ...";
+      await db.from('organizations').update({
+        store_name: document.getElementById('storeNameInput').value,
+        ai_persona_prompt: document.getElementById('personaInput').value,
+        max_discount_percent: Number(document.getElementById('discountInput').value),
+        default_cogs_percent: Number(document.getElementById('defaultCogsInput').value),
+        default_shipping_cost: Number(document.getElementById('defaultShipInput').value),
+        default_ad_spend: Number(document.getElementById('defaultAdInput').value)
+      }).eq('id', currentOrgId);
+      btn.innerText = "تم الحفظ بنجاح ✓";
+      setTimeout(() => btn.innerText = "حفظ الإعدادات والتكاليف", 2000);
+      loadDashboard();
+    }
+
+    function openSimulatorModal() {
+      document.getElementById('simOrderId').value = "ORD-" + Math.floor(1000 + Math.random() * 9000);
+      document.getElementById('simModal').classList.remove('hidden');
+      document.getElementById('simModal').classList.add('flex');
+    }
+    function closeSimulatorModal() {
+      document.getElementById('simModal').classList.add('hidden');
+      document.getElementById('simModal').classList.remove('flex');
+    }
+
+    async function sendSimulatedOrder() {
+      const btn = document.getElementById('simSendBtn');
+      btn.innerText = "جاري الإرسال...";
+      try {
+        await fetch(`${getWebhookBase()}/webhook/velo-new-order`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            org_id: currentOrgId,
+            order_id: document.getElementById('simOrderId').value,
+            customer_name: document.getElementById('simName').value,
+            customer_phone: document.getElementById('simPhone').value,
+            shipping_address: document.getElementById('simAddress').value,
+            total_revenue: Number(document.getElementById('simRev').value),
+            cogs: Number(document.getElementById('simCogs').value),
+            ad_spend: Number(document.getElementById('simExtra').value) / 2,
+            shipping_cost: Number(document.getElementById('simExtra').value) / 2
+          })
+        });
+        closeSimulatorModal();
+        setTimeout(loadDashboard, 2000);
+      } catch (e) {
+        alert("تأكد من تشغيل n8n وتفعيل Publish");
+      } finally {
+        btn.innerText = "إرسال وتشغيل AI";
+      }
+    }
+
+    async function openShopifyTestModal() {
+      const randNum = Math.floor(1000 + Math.random() * 9000);
+      const shopifyPayload = {
+        name: `#SHP-${randNum}`,
+        total_price: "500.00",
+        phone: "+966559876543",
+        customer: { first_name: "نورة", last_name: "العتيبي", phone: "+966559876543" },
+        shipping_address: { city: "الدمام", address1: "حي الشاطئ، شارع الخليج", phone: "+966559876543" }
+      };
+      try {
+        await fetch(`${getWebhookBase()}/webhook/velo-new-order?org_id=${currentOrgId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(shopifyPayload)
+        });
+        alert(`تم إرسال طلب Shopify الحقيقي (#SHP-${randNum}) بقيمة 500 ر.س! سيتم احتساب التكاليف تلقائياً حسب نسب متجرك.`);
+        setTimeout(loadDashboard, 2500);
+      } catch (e) {
+        alert("تأكد من تشغيل n8n وتفعيل Publish");
+      }
+    }
+
+    db.channel('velo-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => loadDashboard())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ai_conversations' }, () => loadDashboard())
+      .subscribe();
+
+    checkSession();
+  </script>
+</body>
+</html>
